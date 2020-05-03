@@ -7,6 +7,8 @@ const app = express()
 app.use(cors());
 app.options('*', cors());  
 app.use(express.json())
+app.use(express.static('build'))
+
 
 morgan.token('value', function (req, res) { return JSON.stringify(req.body) })
 
@@ -66,7 +68,6 @@ app.get('/info',(req,res)=>{
 
 
 app.get('/api/persons',(req,res)=>{
-  console.log("Hi")
     res.json(persons)
 })
 

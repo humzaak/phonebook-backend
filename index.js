@@ -1,6 +1,9 @@
+require('dotenv').config()
 const express = require('express')
 var morgan = require('morgan')
 const cors = require('cors')
+const mongoose = require('mongoose')
+const PhoneBookEntry = require('./models/phonebookEntry')
 
 
 const app = express()
@@ -49,6 +52,14 @@ let persons = [
   }
 ]
 
+
+
+
+//const PhoneBookEntry = mongoose.model('PhoneBookEntry', phoneBookSchema)
+
+
+
+
 app.get('/',(req,res)=>{
 
     res.send('<h1>Phonebook backend !!!</h1>')
@@ -67,22 +78,37 @@ app.get('/info',(req,res)=>{
 })
 
 
+
+
 app.get('/api/persons',(req,res)=>{
-    res.json(persons)
+    PhoneBookEntry.find({}).then(phonebookEntries => {res.json(phonebookEntries.map(phoneBookEntry=>phoneBookEntry.toJSON()))
+    }
+    )
 })
 
 
 
 
-app.get('/api/persons/:id',(req,res)=>{
-    const id = Number(req.params.id)
+app.get('/api/persons/:id',(req,res,next)=>{
+
+  PhoneBookEntry.findById(req.params.id).then(entry=>{
+    if(entry)
+    {
+      res.json(entry.toJSON())
+    }
+    else{
+        res.status(404).end()
+    }
+   })
+  .catch(error => next(error))
+    /*const id = Number(req.params.id)
     console.log(id)
     const person = persons.find(person => person.id === id)
     if (person) {
         res.json(person)
       } else {
         res.status(404).end()
-      }
+      }*/
 })
 
 const getMaxId = () => {
@@ -97,7 +123,7 @@ const generateId = () => {
     return maxId + 1
   }
   
-  app.post('/api/persons', (request, response) => {
+  app.post('/api/persons', (request, response, next) => {
     const body = request.body
     console.log(body)
     if (!body.name) {
@@ -106,24 +132,59 @@ const generateId = () => {
       })
     }
   
-    const person = {
+    const person = new PhoneBookEntry({
       name: body.name,
       number: body.number,
-      id: generateId(),
-    }
+    })
   
-    persons = persons.concat(person)
+  //  persons = persons.concat(person)
+  person.save()
+  .then(savedPerson=>
+     {
+       response.json(savedPerson.toJSON())
+      
+      })
+      .catch(error=>next(error))
   
-    response.json(person)
   })
 
 app.delete('/api/persons/:id',(req,res)=>{
-        const id = Number(req.params.id)
-        persons = persons.filter(person=>person.id !== id)
-        res.status(204).end()
+ // PhoneBookEntry.findById(req.params.id).then(entry=>{res.json(entry.toJSON())})
+ console.log(req.params.id)
+  PhoneBookEntry.deleteOne({ _id: req.params.id }, function (err) {
+    if (err) {
+      console.log("Error")
+      res.status(500).end()
+    } 
+    else{
+      console.log("OK")
+      res.status(204).end()
+    }
+    // deleted at most one tank document
+  });
+
+       // const id = Number(req.params.id)
+        //persons = persons.filter(person=>person.id !== id)
+        //res.status(204).end()
+
 })
 
-const port = process.env.PORT || 3001
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if(error.name='ValidationError'){
+    return response.status(400).json({error: error.message})
+  }
+
+  next(error)
+}
+
+app.use(errorHandler)
+
+const port = process.env.PORT 
 
 app.listen(port, ()=> {
     console.log(`Server running on port ${port}`)
